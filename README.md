@@ -4,9 +4,10 @@ API REST em Laravel para o sistema de controle e planejamento financeiro pessoal
 
 ## Domínio
 
-- **Categorias** — organizam receitas e despesas, com cor para exibição visual.
-- **Transações** — lançamentos de entrada/saída vinculados a uma categoria.
-- **Metas orçamentárias (budgets)** — limite de gasto por mês, opcionalmente por categoria, com cálculo automático do valor já gasto.
+- **Categorias** — organizam receitas e despesas, com cor para exibição visual. O tipo (receita/despesa) da transação é sempre o tipo da sua categoria — não existe um campo de tipo redundante na transação.
+- **Contas** — nome e instituição financeira, sem dados bancários sensíveis. Transações podem opcionalmente ser associadas a uma conta; o saldo de cada conta é calculado a partir das transações vinculadas a ela.
+- **Transações** — lançamentos de entrada/saída vinculados a uma categoria (obrigatória) e a uma conta (opcional).
+- **Limites de gastos (spending limits)** — valor máximo de gasto por mês, opcionalmente restrito a uma categoria, com cálculo automático do valor já gasto e do percentual atingido.
 
 ## Rodando com Docker (recomendado)
 
@@ -55,10 +56,12 @@ Todos (exceto register/login) exigem o header `Authorization: Bearer <token>`.
 | GET | /api/auth/me | Usuário autenticado |
 | GET/POST | /api/categories | Listar / criar categoria |
 | PUT/DELETE | /api/categories/{id} | Atualizar / remover categoria |
+| GET/POST | /api/accounts | Listar (com saldo calculado) / criar conta |
+| PUT/DELETE | /api/accounts/{id} | Atualizar / remover conta |
 | GET/POST | /api/transactions | Listar (filtros `month`, `category_id`, `type`) / criar transação |
 | PUT/DELETE | /api/transactions/{id} | Atualizar / remover transação |
-| GET/POST | /api/budgets | Listar (filtro `month`) / criar meta |
-| PUT/DELETE | /api/budgets/{id} | Atualizar / remover meta |
+| GET/POST | /api/spending-limits | Listar (filtro `month`) / criar limite de gastos |
+| PUT/DELETE | /api/spending-limits/{id} | Atualizar / remover limite de gastos |
 
 ## Configuração do front-end
 

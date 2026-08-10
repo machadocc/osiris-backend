@@ -8,16 +8,9 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['name', 'type', 'color'])]
-class Category extends Model
+#[Fillable(['name', 'institution'])]
+class Account extends Model
 {
-    protected function casts(): array
-    {
-        return [
-            'type' => TransactionType::class,
-        ];
-    }
-
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
@@ -28,8 +21,11 @@ class Category extends Model
         return $this->hasMany(Transaction::class);
     }
 
-    public function spendingLimits(): HasMany
+    public function balance(): float
     {
-        return $this->hasMany(SpendingLimit::class);
+        $income = $this->transactions()->whereHas('category', fn ($query) => $query->where('type', TransactionType::Income))->sum('amount');
+        $expense = $this->transactions()->whereHas('category', fn ($query) => $query->where('type', TransactionType::Expense))->sum('amount');
+
+        return (float) $income - (float) $expense;
     }
 }

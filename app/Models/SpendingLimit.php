@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 #[Fillable(['category_id', 'name', 'limit_amount', 'reference_month'])]
-class Budget extends Model
+class SpendingLimit extends Model
 {
     protected function casts(): array
     {
@@ -32,7 +32,7 @@ class Budget extends Model
     {
         return (float) Transaction::query()
             ->where('user_id', $this->user_id)
-            ->where('type', TransactionType::Expense)
+            ->whereHas('category', fn ($query) => $query->where('type', TransactionType::Expense))
             ->when($this->category_id, fn ($query) => $query->where('category_id', $this->category_id))
             ->whereYear('date', $this->reference_month->year)
             ->whereMonth('date', $this->reference_month->month)

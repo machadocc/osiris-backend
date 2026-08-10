@@ -1,11 +1,11 @@
 <?php
 
-namespace App\Http\Requests\Budget;
+namespace App\Http\Requests\SpendingLimit;
 
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
-class UpdateBudgetRequest extends FormRequest
+class StoreSpendingLimitRequest extends FormRequest
 {
     public function authorize(): bool
     {
@@ -19,9 +19,9 @@ class UpdateBudgetRequest extends FormRequest
                 'nullable',
                 Rule::exists('categories', 'id')->where('user_id', $this->user()->id),
             ],
-            'name' => ['sometimes', 'required', 'string', 'max:255'],
-            'limit_amount' => ['sometimes', 'required', 'numeric', 'min:0.01'],
-            'reference_month' => ['sometimes', 'required', 'date'],
+            'name' => ['required', 'string', 'max:255'],
+            'limit_amount' => ['required', 'numeric', 'min:0.01'],
+            'reference_month' => ['required', 'date'],
         ];
     }
 }

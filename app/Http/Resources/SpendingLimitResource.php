@@ -5,7 +5,7 @@ namespace App\Http\Resources;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
-class BudgetResource extends JsonResource
+class SpendingLimitResource extends JsonResource
 {
     public function toArray(Request $request): array
     {
@@ -20,7 +20,7 @@ class BudgetResource extends JsonResource
             'remaining_amount' => $limit - $spent,
             'percentage' => $limit > 0 ? round(min($spent / $limit, 1) * 100, 1) : 0,
             'reference_month' => $this->reference_month->toDateString(),
-            'category' => new CategoryResource($this->whenLoaded('category')),
+            'category' => $this->category ? new CategoryResource($this->category) : null,
             'created_at' => $this->created_at,
         ];
     }

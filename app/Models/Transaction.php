@@ -2,18 +2,16 @@
 
 namespace App\Models;
 
-use App\Enums\TransactionType;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-#[Fillable(['category_id', 'type', 'amount', 'description', 'date'])]
+#[Fillable(['category_id', 'account_id', 'amount', 'description', 'date'])]
 class Transaction extends Model
 {
     protected function casts(): array
     {
         return [
-            'type' => TransactionType::class,
             'amount' => 'decimal:2',
             'date' => 'date',
         ];
@@ -27,5 +25,10 @@ class Transaction extends Model
     public function category(): BelongsTo
     {
         return $this->belongsTo(Category::class);
+    }
+
+    public function account(): BelongsTo
+    {
+        return $this->belongsTo(Account::class);
     }
 }

@@ -11,11 +11,11 @@ class TransactionResource extends JsonResource
     {
         return [
             'id' => $this->id,
-            'type' => $this->type->value,
             'amount' => (float) $this->amount,
             'description' => $this->description,
             'date' => $this->date->toDateString(),
             'category' => new CategoryResource($this->whenLoaded('category')),
+            'account' => $this->account ? new AccountResource($this->account) : null,
             'created_at' => $this->created_at,
         ];
     }

@@ -2,10 +2,8 @@
 
 namespace App\Http\Requests\Transaction;
 
-use App\Enums\TransactionType;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
-use Illuminate\Validation\Rules\Enum;
 
 class UpdateTransactionRequest extends FormRequest
 {
@@ -22,7 +20,10 @@ class UpdateTransactionRequest extends FormRequest
                 'required',
                 Rule::exists('categories', 'id')->where('user_id', $this->user()->id),
             ],
-            'type' => ['sometimes', 'required', new Enum(TransactionType::class)],
+            'account_id' => [
+                'nullable',
+                Rule::exists('accounts', 'id')->where('user_id', $this->user()->id),
+            ],
             'amount' => ['sometimes', 'required', 'numeric', 'min:0.01'],
             'description' => ['nullable', 'string', 'max:255'],
             'date' => ['sometimes', 'required', 'date'],
