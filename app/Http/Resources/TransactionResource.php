@@ -18,6 +18,7 @@ class TransactionResource extends JsonResource
             'account' => $this->account ? new AccountResource($this->account) : null,
             'receipt_url' => $this->receiptUrl(),
             'is_recurring' => $this->isRecurring(),
+            'is_unusual_amount' => $this->isUnusualAmount(),
             'created_at' => $this->created_at,
         ];
     }

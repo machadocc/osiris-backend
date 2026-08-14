@@ -1,4 +1,4 @@
-# Financeiro API
+# Osiris API
 
 API REST em Laravel para o sistema de controle e planejamento financeiro pessoal (TCC). Autenticação via Laravel Sanctum (token Bearer), banco PostgreSQL.
 
@@ -6,8 +6,9 @@ API REST em Laravel para o sistema de controle e planejamento financeiro pessoal
 
 - **Categorias** — organizam receitas e despesas, com cor para exibição visual. O tipo (receita/despesa) da transação é sempre o tipo da sua categoria — não existe um campo de tipo redundante na transação.
 - **Contas** — nome e instituição financeira, sem dados bancários sensíveis. Transações podem opcionalmente ser associadas a uma conta; o saldo de cada conta é calculado a partir das transações vinculadas a ela.
-- **Transações** — lançamentos de entrada/saída vinculados a uma categoria (obrigatória) e a uma conta (opcional).
+- **Transações** — lançamentos de entrada/saída vinculados a uma categoria (obrigatória) e a uma conta (opcional), com comprovante opcional (foto do cupom).
 - **Limites de gastos (spending limits)** — valor máximo de gasto por mês, opcionalmente restrito a uma categoria, com cálculo automático do valor já gasto e do percentual atingido.
+- **Metas de economia (savings goals)** — valor alvo que o usuário quer juntar, com progresso e contribuições manuais.
 
 ## Rodando com Docker (recomendado)
 
@@ -62,6 +63,9 @@ Todos (exceto register/login) exigem o header `Authorization: Bearer <token>`.
 | PUT/DELETE | /api/transactions/{id} | Atualizar / remover transação |
 | GET/POST | /api/spending-limits | Listar (filtro `month`) / criar limite de gastos |
 | PUT/DELETE | /api/spending-limits/{id} | Atualizar / remover limite de gastos |
+| GET/POST | /api/savings-goals | Listar / criar meta de economia |
+| PUT/DELETE | /api/savings-goals/{id} | Atualizar / remover meta de economia |
+| GET | /api/dashboard/summary | Resumo do mês (totais, gastos por categoria, projeção de saldo) |
 
 ## Configuração do front-end
 

@@ -17,6 +17,7 @@ class SavingsGoalResource extends JsonResource
             'remaining_amount' => $this->remainingAmount(),
             'percentage' => $this->percentage(),
             'target_date' => $this->target_date?->toDateString(),
+            'estimated_completion_date' => $this->estimatedCompletionDate(),
             'created_at' => $this->created_at,
         ];
     }

@@ -6,6 +6,7 @@ use App\Enums\TransactionType;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\AccountResource;
 use App\Http\Resources\CategoryResource;
+use App\Http\Resources\SavingsGoalResource;
 use App\Http\Resources\SpendingLimitResource;
 use App\Http\Resources\TransactionResource;
 use App\Models\Category;
@@ -58,6 +59,10 @@ class DashboardController extends Controller
                 ->get()
         );
 
+        $savingsGoals = SavingsGoalResource::collection(
+            $user->savingsGoals()->orderByDesc('created_at')->get()
+        );
+
         $recentTransactions = TransactionResource::collection(
             $user->transactions()
                 ->with(['category', 'account'])
@@ -80,6 +85,8 @@ class DashboardController extends Controller
             })
             ->values();
 
+        $balanceForecast = $this->forecastFor($user);
+
         return response()->json([
             'month' => $month->toDateString(),
             'totals' => $totals,
@@ -87,9 +94,54 @@ class DashboardController extends Controller
             'expenses_by_category' => $expensesByCategory,
             'accounts' => $accounts,
             'spending_limits' => $spendingLimits,
+            'savings_goals' => $savingsGoals,
             'recent_transactions' => $recentTransactions,
             'balance_history' => $balanceHistory,
+            'balance_forecast' => $balanceForecast,
         ]);
+    }
+
+    /**
+     * Projeta o saldo dos próximos 3 meses a partir de hoje, assumindo que as
+     * transações recorrentes detectadas (mesma categoria+descrição+valor em
+     * pelo menos 2 dos últimos 3 meses) se repetem sem mudança.
+     */
+    private function forecastFor($user): array
+    {
+        $currentMonth = now()->startOfMonth();
+        $windowStart = $currentMonth->copy()->subMonthsNoOverflow(3);
+
+        $recurringTransactions = Transaction::query()
+            ->where('user_id', $user->id)
+            ->with('category')
+            ->where('date', '>=', $windowStart)
+            ->where('date', '<', $currentMonth)
+            ->get()
+            ->groupBy(fn (Transaction $transaction) => implode('|', [
+                $transaction->category_id,
+                mb_strtolower(trim($transaction->description ?? '')),
+                number_format((float) $transaction->amount, 2, '.', ''),
+            ]))
+            ->filter(fn ($group) => $group->map(fn (Transaction $t) => $t->date->format('Y-m'))->unique()->count() >= 2)
+            ->map(fn ($group) => $group->first());
+
+        $projectedIncome = (float) $recurringTransactions
+            ->filter(fn (Transaction $t) => $t->category->type === TransactionType::Income)
+            ->sum('amount');
+
+        $projectedExpense = (float) $recurringTransactions
+            ->filter(fn (Transaction $t) => $t->category->type === TransactionType::Expense)
+            ->sum('amount');
+
+        return collect(range(1, 3))
+            ->map(fn (int $offset) => [
+                'month' => $currentMonth->copy()->addMonthsNoOverflow($offset)->format('Y-m'),
+                'income' => $projectedIncome,
+                'expense' => $projectedExpense,
+                'balance' => $projectedIncome - $projectedExpense,
+            ])
+            ->values()
+            ->all();
     }
 
     private function totalsFor(int $userId, Carbon $month): array

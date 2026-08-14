@@ -36,4 +36,30 @@ class SavingsGoal extends Model
 
         return round(min((float) $this->current_amount / (float) $this->target_amount, 1) * 100, 1);
     }
+
+    /**
+     * Estimativa ingênua de quando a meta será atingida: assume que o ritmo de
+     * guardar dinheiro desde a criação da meta (current_amount / dias desde a
+     * criação) se mantém constante. Pode ser impreciso logo após criar a meta
+     * ou depois de um aporte único muito grande.
+     */
+    public function estimatedCompletionDate(): ?string
+    {
+        $remaining = $this->remainingAmount();
+
+        if ($remaining <= 0) {
+            return null;
+        }
+
+        $daysSinceCreated = max($this->created_at->diffInDays(now()), 1);
+        $dailyRate = (float) $this->current_amount / $daysSinceCreated;
+
+        if ($dailyRate <= 0) {
+            return null;
+        }
+
+        $daysRemaining = (int) ceil($remaining / $dailyRate);
+
+        return now()->addDays($daysRemaining)->toDateString();
+    }
 }

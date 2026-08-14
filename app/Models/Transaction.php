@@ -38,6 +38,24 @@ class Transaction extends Model
         return $this->receipt_path ? Storage::disk('public')->url($this->receipt_path) : null;
     }
 
+    public function isUnusualAmount(): bool
+    {
+        $stats = static::query()
+            ->where('user_id', $this->user_id)
+            ->where('category_id', $this->category_id)
+            ->where('id', '!=', $this->id)
+            ->selectRaw('avg(amount) as avg_amount, stddev(amount) as stddev_amount, count(*) as sample_size')
+            ->first();
+
+        if ($stats->sample_size < 3 || $stats->stddev_amount === null) {
+            return false;
+        }
+
+        $threshold = (float) $stats->avg_amount + (2 * (float) $stats->stddev_amount);
+
+        return (float) $this->amount > $threshold;
+    }
+
     public function isRecurring(): bool
     {
         if (blank($this->description)) {
