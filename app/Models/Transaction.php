@@ -5,8 +5,9 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Facades\Storage;
 
-#[Fillable(['category_id', 'account_id', 'amount', 'description', 'date'])]
+#[Fillable(['category_id', 'account_id', 'amount', 'description', 'date', 'receipt_path'])]
 class Transaction extends Model
 {
     protected function casts(): array
@@ -30,5 +31,10 @@ class Transaction extends Model
     public function account(): BelongsTo
     {
         return $this->belongsTo(Account::class);
+    }
+
+    public function receiptUrl(): ?string
+    {
+        return $this->receipt_path ? Storage::disk('public')->url($this->receipt_path) : null;
     }
 }

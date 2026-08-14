@@ -9,6 +9,7 @@ use App\Http\Requests\Transaction\UpdateTransactionRequest;
 use App\Http\Resources\TransactionResource;
 use App\Models\Transaction;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rules\Enum;
 
 class TransactionController extends Controller
@@ -36,7 +37,14 @@ class TransactionController extends Controller
 
     public function store(StoreTransactionRequest $request)
     {
-        $transaction = $request->user()->transactions()->create($request->validated());
+        $data = $request->validated();
+        unset($data['receipt']);
+
+        if ($request->hasFile('receipt')) {
+            $data['receipt_path'] = $request->file('receipt')->store("receipts/{$request->user()->id}", 'public');
+        }
+
+        $transaction = $request->user()->transactions()->create($data);
 
         return new TransactionResource($transaction->load(['category', 'account']));
     }
@@ -45,7 +53,18 @@ class TransactionController extends Controller
     {
         $this->authorizeOwnership($request, $transaction);
 
-        $transaction->update($request->validated());
+        $data = $request->validated();
+        unset($data['receipt'], $data['remove_receipt']);
+
+        if ($request->hasFile('receipt')) {
+            $this->deleteReceipt($transaction->receipt_path);
+            $data['receipt_path'] = $request->file('receipt')->store("receipts/{$request->user()->id}", 'public');
+        } elseif ($request->boolean('remove_receipt')) {
+            $this->deleteReceipt($transaction->receipt_path);
+            $data['receipt_path'] = null;
+        }
+
+        $transaction->update($data);
 
         return new TransactionResource($transaction->load(['category', 'account']));
     }
@@ -54,6 +73,7 @@ class TransactionController extends Controller
     {
         $this->authorizeOwnership($request, $transaction);
 
+        $this->deleteReceipt($transaction->receipt_path);
         $transaction->delete();
 
         return response()->json(status: 204);
@@ -62,5 +82,12 @@ class TransactionController extends Controller
     private function authorizeOwnership(Request $request, Transaction $transaction): void
     {
         abort_unless($transaction->user_id === $request->user()->id, 403);
+    }
+
+    private function deleteReceipt(?string $path): void
+    {
+        if ($path) {
+            Storage::disk('public')->delete($path);
+        }
     }
 }

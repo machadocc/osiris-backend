@@ -16,6 +16,7 @@ class TransactionResource extends JsonResource
             'date' => $this->date->toDateString(),
             'category' => new CategoryResource($this->whenLoaded('category')),
             'account' => $this->account ? new AccountResource($this->account) : null,
+            'receipt_url' => $this->receiptUrl(),
             'created_at' => $this->created_at,
         ];
     }

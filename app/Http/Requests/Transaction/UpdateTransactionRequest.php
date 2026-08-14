@@ -27,6 +27,8 @@ class UpdateTransactionRequest extends FormRequest
             'amount' => ['sometimes', 'required', 'numeric', 'min:0.01'],
             'description' => ['nullable', 'string', 'max:255'],
             'date' => ['sometimes', 'required', 'date'],
+            'receipt' => ['nullable', 'image', 'mimes:jpeg,png,webp', 'max:5120'],
+            'remove_receipt' => ['nullable', 'boolean'],
         ];
     }
 }
