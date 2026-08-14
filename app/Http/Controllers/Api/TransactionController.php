@@ -29,6 +29,7 @@ class TransactionController extends Controller
             })
             ->when($request->filled('category_id'), fn ($query) => $query->where('category_id', $request->integer('category_id')))
             ->when($request->filled('type'), fn ($query) => $query->whereHas('category', fn ($category) => $category->where('type', $request->string('type'))))
+            ->when($request->filled('search'), fn ($query) => $query->where('description', 'ilike', '%'.$request->string('search').'%'))
             ->orderByDesc('date')
             ->paginate(20);
 

@@ -17,6 +17,7 @@ class TransactionResource extends JsonResource
             'category' => new CategoryResource($this->whenLoaded('category')),
             'account' => $this->account ? new AccountResource($this->account) : null,
             'receipt_url' => $this->receiptUrl(),
+            'is_recurring' => $this->isRecurring(),
             'created_at' => $this->created_at,
         ];
     }

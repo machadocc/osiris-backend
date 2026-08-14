@@ -37,4 +37,26 @@ class Transaction extends Model
     {
         return $this->receipt_path ? Storage::disk('public')->url($this->receipt_path) : null;
     }
+
+    public function isRecurring(): bool
+    {
+        if (blank($this->description)) {
+            return false;
+        }
+
+        $previousMonth = $this->date->copy()->subMonthNoOverflow();
+        $nextMonth = $this->date->copy()->addMonthNoOverflow();
+
+        return static::query()
+            ->where('user_id', $this->user_id)
+            ->where('id', '!=', $this->id)
+            ->where('amount', $this->amount)
+            ->whereRaw('lower(description) = ?', [mb_strtolower(trim($this->description))])
+            ->where(function ($query) use ($previousMonth, $nextMonth) {
+                $query
+                    ->where(fn ($q) => $q->whereYear('date', $previousMonth->year)->whereMonth('date', $previousMonth->month))
+                    ->orWhere(fn ($q) => $q->whereYear('date', $nextMonth->year)->whereMonth('date', $nextMonth->month));
+            })
+            ->exists();
+    }
 }

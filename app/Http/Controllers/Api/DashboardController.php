@@ -69,6 +69,17 @@ class DashboardController extends Controller
                 ->get()
         );
 
+        $balanceHistory = collect(range(5, 0))
+            ->map(function (int $offset) use ($month, $user) {
+                $historyMonth = $month->copy()->subMonthsNoOverflow($offset);
+
+                return array_merge(
+                    ['month' => $historyMonth->format('Y-m')],
+                    $this->totalsFor($user->id, $historyMonth),
+                );
+            })
+            ->values();
+
         return response()->json([
             'month' => $month->toDateString(),
             'totals' => $totals,
@@ -77,6 +88,7 @@ class DashboardController extends Controller
             'accounts' => $accounts,
             'spending_limits' => $spendingLimits,
             'recent_transactions' => $recentTransactions,
+            'balance_history' => $balanceHistory,
         ]);
     }
 
