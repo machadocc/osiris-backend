@@ -14,6 +14,7 @@ class CategoryResource extends JsonResource
             'name' => $this->name,
             'type' => $this->type->value,
             'color' => $this->color,
+            'keywords' => $this->keywords,
             'created_at' => $this->created_at,
         ];
     }

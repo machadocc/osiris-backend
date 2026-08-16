@@ -19,6 +19,7 @@ class UpdateCategoryRequest extends FormRequest
             'name' => ['sometimes', 'required', 'string', 'max:255'],
             'type' => ['sometimes', 'required', new Enum(TransactionType::class)],
             'color' => ['nullable', 'string', 'regex:/^#[0-9a-fA-F]{6}$/'],
+            'keywords' => ['nullable', 'string', 'max:1000'],
         ];
     }
 }
