@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Facades\Storage;
 
-#[Fillable(['category_id', 'account_id', 'amount', 'description', 'date', 'receipt_path'])]
+#[Fillable(['category_id', 'account_id', 'recurring_transaction_id', 'amount', 'description', 'date', 'receipt_path'])]
 class Transaction extends Model
 {
     protected function casts(): array

@@ -55,4 +55,14 @@ class User extends Authenticatable
     {
         return $this->hasMany(SavingsGoal::class);
     }
+
+    public function recurringTransactions(): HasMany
+    {
+        return $this->hasMany(RecurringTransaction::class);
+    }
+
+    public function pushSubscriptions(): HasMany
+    {
+        return $this->hasMany(PushSubscription::class);
+    }
 }

@@ -12,6 +12,7 @@ use App\Http\Resources\TransactionResource;
 use App\Models\Category;
 use App\Models\Transaction;
 use App\Services\DashboardCache;
+use App\Services\FinancialHealthScoreCalculator;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
@@ -27,6 +28,10 @@ class DashboardController extends Controller
         $month = ($request->filled('month') ? $request->date('month', 'Y-m') : now())->startOfMonth();
         $user = $request->user();
 
+        // Geração de recorrências vencidas roda no middleware
+        // GenerateDueRecurringTransactions (toda rota autenticada, não só
+        // aqui) — se gerou algo, o Observer já invalidou o cache antes desta
+        // chave ser calculada.
         $cacheKey = sprintf('dashboard-summary:%d:v%d:%s', $user->id, DashboardCache::version($user->id), $month->format('Y-m'));
 
         $payload = Cache::remember($cacheKey, now()->addMinutes(10), function () use ($user, $month) {
@@ -112,6 +117,7 @@ class DashboardController extends Controller
             ->values();
 
         $balanceForecast = $this->forecastFor($user);
+        $healthScore = FinancialHealthScoreCalculator::calculate($user, $month, $totals);
 
         return [
             'month' => $month->toDateString(),
@@ -124,6 +130,7 @@ class DashboardController extends Controller
             'recent_transactions' => $recentTransactions,
             'balance_history' => $balanceHistory,
             'balance_forecast' => $balanceForecast,
+            'health_score' => $healthScore,
         ];
     }
 

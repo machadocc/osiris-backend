@@ -20,7 +20,7 @@ class StoreTransactionRequest extends FormRequest
                 Rule::exists('categories', 'id')->where('user_id', $this->user()->id),
             ],
             'account_id' => [
-                'nullable',
+                'required',
                 Rule::exists('accounts', 'id')->where('user_id', $this->user()->id),
             ],
             'amount' => ['required', 'numeric', 'min:0.01'],

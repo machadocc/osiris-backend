@@ -1,11 +1,11 @@
 <?php
 
-namespace App\Http\Requests\Transaction;
+namespace App\Http\Requests\RecurringTransaction;
 
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
-class UpdateTransactionRequest extends FormRequest
+class UpdateRecurringTransactionRequest extends FormRequest
 {
     public function authorize(): bool
     {
@@ -27,9 +27,8 @@ class UpdateTransactionRequest extends FormRequest
             ],
             'amount' => ['sometimes', 'required', 'numeric', 'min:0.01'],
             'description' => ['nullable', 'string', 'max:255'],
-            'date' => ['sometimes', 'required', 'date'],
-            'receipt' => ['nullable', 'image', 'mimes:jpeg,png,webp', 'max:5120'],
-            'remove_receipt' => ['nullable', 'boolean'],
+            'day_of_month' => ['sometimes', 'required', 'integer', 'min:1', 'max:28'],
+            'active' => ['sometimes', 'boolean'],
         ];
     }
 }

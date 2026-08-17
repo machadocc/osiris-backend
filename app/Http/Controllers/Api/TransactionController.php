@@ -8,6 +8,7 @@ use App\Http\Requests\Transaction\StoreTransactionRequest;
 use App\Http\Requests\Transaction\UpdateTransactionRequest;
 use App\Http\Resources\TransactionResource;
 use App\Models\Transaction;
+use App\Services\PushNotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rules\Enum;
@@ -46,8 +47,11 @@ class TransactionController extends Controller
         }
 
         $transaction = $request->user()->transactions()->create($data);
+        $transaction->load(['category', 'account']);
 
-        return new TransactionResource($transaction->load(['category', 'account']));
+        $this->notifyIfLimitExceeded($transaction);
+
+        return new TransactionResource($transaction);
     }
 
     public function update(UpdateTransactionRequest $request, Transaction $transaction)
@@ -66,8 +70,11 @@ class TransactionController extends Controller
         }
 
         $transaction->update($data);
+        $transaction->load(['category', 'account']);
 
-        return new TransactionResource($transaction->load(['category', 'account']));
+        $this->notifyIfLimitExceeded($transaction);
+
+        return new TransactionResource($transaction);
     }
 
     public function destroy(Request $request, Transaction $transaction)
@@ -90,5 +97,49 @@ class TransactionController extends Controller
         if ($path) {
             Storage::disk('public')->delete($path);
         }
+    }
+
+    /**
+     * Notifica por push (RF-TRX-06 é o aviso em tempo real no formulário,
+     * antes de enviar; isso aqui é o complemento server-side, depois que o
+     * lançamento já foi salvo) quando algum limite de gastos afetado por
+     * essa transação chega a 100% ou mais.
+     */
+    private function notifyIfLimitExceeded(Transaction $transaction): void
+    {
+        if ($transaction->category->type !== TransactionType::Expense) {
+            return;
+        }
+
+        $limits = $transaction->user->spendingLimits()
+            ->where(fn ($query) => $query->whereNull('category_id')->orWhere('category_id', $transaction->category_id))
+            ->whereYear('reference_month', $transaction->date->year)
+            ->whereMonth('reference_month', $transaction->date->month)
+            ->get();
+
+        foreach ($limits as $limit) {
+            $spent = $limit->spentAmount();
+            $percentage = $limit->limit_amount > 0 ? ($spent / (float) $limit->limit_amount) * 100 : 0;
+
+            if ($percentage >= 100) {
+                PushNotificationService::notifyUser(
+                    $transaction->user,
+                    'Limite estourado!',
+                    sprintf(
+                        '"%s" chegou a %d%% — %s de %s já gastos.',
+                        $limit->name,
+                        round($percentage),
+                        $this->formatCurrency($spent),
+                        $this->formatCurrency((float) $limit->limit_amount),
+                    ),
+                    '/spending-limits',
+                );
+            }
+        }
+    }
+
+    private function formatCurrency(float $value): string
+    {
+        return 'R$ '.number_format($value, 2, ',', '.');
     }
 }
