@@ -19,4 +19,7 @@ RUN composer install --no-dev --optimize-autoloader --no-interaction \
 
 EXPOSE 8080
 
-CMD php artisan migrate --force && php artisan serve --host 0.0.0.0 --port 8080
+# Usa $PORT quando a plataforma injeta essa variável (Render); cai para 8080
+# quando não injeta (App Runner, onde a porta é fixada nas configurações do
+# serviço) — mesmo Dockerfile serve os dois sem duplicar arquivo.
+CMD php artisan migrate --force && php artisan serve --host 0.0.0.0 --port ${PORT:-8080}
