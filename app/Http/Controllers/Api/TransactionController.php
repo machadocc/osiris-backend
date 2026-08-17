@@ -190,6 +190,8 @@ class TransactionController extends Controller
                         $this->formatCurrency((float) $limit->limit_amount),
                     ),
                     '/spending-limits',
+                    'osiris-limit-alert',
+                    '📊 Ver limites',
                 );
             }
         }

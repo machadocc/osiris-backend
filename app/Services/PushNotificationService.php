@@ -15,8 +15,14 @@ use Minishlink\WebPush\WebPush;
  */
 class PushNotificationService
 {
-    public static function notifyUser(User $user, string $title, string $body, ?string $url = null): void
-    {
+    public static function notifyUser(
+        User $user,
+        string $title,
+        string $body,
+        ?string $url = null,
+        string $tag = 'osiris-notification',
+        ?string $actionLabel = null,
+    ): void {
         $subscriptions = $user->pushSubscriptions()->get();
 
         if ($subscriptions->isEmpty()) {
@@ -31,7 +37,13 @@ class PushNotificationService
             ],
         ]);
 
-        $payload = json_encode(['title' => $title, 'body' => $body, 'url' => $url]);
+        $payload = json_encode([
+            'title' => $title,
+            'body' => $body,
+            'url' => $url,
+            'tag' => $tag,
+            'actionLabel' => $actionLabel,
+        ]);
 
         foreach ($subscriptions as $subscription) {
             $webPush->queueNotification(

@@ -65,4 +65,9 @@ class User extends Authenticatable
     {
         return $this->hasMany(PushSubscription::class);
     }
+
+    public function weeklySummaryLogs(): HasMany
+    {
+        return $this->hasMany(WeeklySummaryLog::class);
+    }
 }

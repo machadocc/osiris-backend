@@ -20,19 +20,27 @@ class CategoryBreakdownService
 {
     public static function forUserAndMonth(int $userId, Carbon $month): Collection
     {
+        return static::forUserAndDateRange($userId, $month->copy()->startOfMonth(), $month->copy()->endOfMonth());
+    }
+
+    /**
+     * Primitiva central: mesma soma de `forUserAndMonth`, mas pra qualquer
+     * intervalo de datas — usada pelo resumo semanal (RF-NOTIF-02), que
+     * precisa de segunda a domingo, não de um mês inteiro.
+     */
+    public static function forUserAndDateRange(int $userId, Carbon $start, Carbon $end): Collection
+    {
         $nonSplit = Transaction::query()
             ->where('user_id', $userId)
             ->whereNotNull('category_id')
-            ->whereYear('date', $month->year)
-            ->whereMonth('date', $month->month)
+            ->whereBetween('date', [$start->toDateString(), $end->toDateString()])
             ->select('category_id', 'amount');
 
         $splitRows = TransactionSplit::query()
             ->select('transaction_splits.category_id', 'transaction_splits.amount')
             ->join('transactions', 'transactions.id', '=', 'transaction_splits.transaction_id')
             ->where('transactions.user_id', $userId)
-            ->whereYear('transactions.date', $month->year)
-            ->whereMonth('transactions.date', $month->month);
+            ->whereBetween('transactions.date', [$start->toDateString(), $end->toDateString()]);
 
         return $nonSplit->unionAll($splitRows)->get();
     }
