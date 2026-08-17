@@ -11,8 +11,10 @@ use App\Http\Resources\SpendingLimitResource;
 use App\Http\Resources\TransactionResource;
 use App\Models\Category;
 use App\Models\Transaction;
+use App\Services\DashboardCache;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cache;
 
 class DashboardController extends Controller
 {
@@ -23,8 +25,32 @@ class DashboardController extends Controller
         ]);
 
         $month = ($request->filled('month') ? $request->date('month', 'Y-m') : now())->startOfMonth();
-        $previousMonth = $month->copy()->subMonthNoOverflow();
         $user = $request->user();
+
+        $cacheKey = sprintf('dashboard-summary:%d:v%d:%s', $user->id, DashboardCache::version($user->id), $month->format('Y-m'));
+
+        $payload = Cache::remember($cacheKey, now()->addMinutes(10), function () use ($user, $month) {
+            // json_decode(json_encode()) força tudo (Resources aninhados,
+            // Carbon, Enums) a virar array/primitivo puro antes de ir pro
+            // cache: cachear os objetos Resource direto não pouparia nada
+            // (toArray() só roda de fato quando o JSON é montado, e o
+            // unserialize do driver de cache do banco quebra objetos Carbon
+            // aninhados, virando "__PHP_Incomplete_Class_Name").
+            return json_decode(json_encode($this->buildSummary($user, $month)), true);
+        });
+
+        return response()->json($payload);
+    }
+
+    /**
+     * TTL longo (10min) porque a invalidação de verdade é por versão:
+     * DashboardCacheObserver bumpa a versão do usuário a cada escrita
+     * relevante (Transaction/Category/Account/SpendingLimit/SavingsGoal) — o
+     * TTL é só uma rede de segurança, não a fonte de atualização dos dados.
+     */
+    private function buildSummary($user, Carbon $month): array
+    {
+        $previousMonth = $month->copy()->subMonthNoOverflow();
 
         $totals = $this->totalsFor($user->id, $month);
         $previousTotals = $this->totalsFor($user->id, $previousMonth);
@@ -87,7 +113,7 @@ class DashboardController extends Controller
 
         $balanceForecast = $this->forecastFor($user);
 
-        return response()->json([
+        return [
             'month' => $month->toDateString(),
             'totals' => $totals,
             'previous_totals' => $previousTotals,
@@ -98,7 +124,7 @@ class DashboardController extends Controller
             'recent_transactions' => $recentTransactions,
             'balance_history' => $balanceHistory,
             'balance_forecast' => $balanceForecast,
-        ]);
+        ];
     }
 
     /**
