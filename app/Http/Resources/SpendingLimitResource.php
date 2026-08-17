@@ -19,6 +19,7 @@ class SpendingLimitResource extends JsonResource
             'spent_amount' => $spent,
             'remaining_amount' => $limit - $spent,
             'percentage' => $limit > 0 ? round(min($spent / $limit, 1) * 100, 1) : 0,
+            'daily_allowance' => $this->dailyAllowance(),
             'reference_month' => $this->reference_month->toDateString(),
             'category' => $this->category ? new CategoryResource($this->category) : null,
             'created_at' => $this->created_at,

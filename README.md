@@ -5,10 +5,13 @@ API REST em Laravel para o sistema de controle e planejamento financeiro pessoal
 ## Domínio
 
 - **Categorias** — organizam receitas e despesas, com cor para exibição visual. O tipo (receita/despesa) da transação é sempre o tipo da sua categoria — não existe um campo de tipo redundante na transação.
-- **Contas** — nome e instituição financeira, sem dados bancários sensíveis. Transações podem opcionalmente ser associadas a uma conta; o saldo de cada conta é calculado a partir das transações vinculadas a ela.
-- **Transações** — lançamentos de entrada/saída vinculados a uma categoria (obrigatória) e a uma conta (opcional), com comprovante opcional (foto do cupom).
-- **Limites de gastos (spending limits)** — valor máximo de gasto por mês, opcionalmente restrito a uma categoria, com cálculo automático do valor já gasto e do percentual atingido.
+- **Contas** — nome e instituição financeira, sem dados bancários sensíveis. Toda transação pertence a uma conta (obrigatória, ver `specs/05-architecture.md`); o saldo de cada conta é calculado a partir das transações vinculadas a ela; remover uma conta remove as transações dela junto.
+- **Transações** — lançamentos de entrada/saída vinculados a uma categoria (ou divididos entre várias, ver `transaction_splits`) e a uma conta (obrigatória), com comprovante opcional (foto do cupom).
+- **Lançamentos recorrentes** — cadastrados uma vez (categoria, conta, valor, dia do mês), geram automaticamente uma transação normal todo mês.
+- **Limites de gastos (spending limits)** — valor máximo de gasto por mês, opcionalmente restrito a uma categoria, com cálculo automático do valor já gasto, do percentual atingido e, pro mês corrente, de um valor sugerido de gasto diário pra não estourar. Ao estourar 100%, dispara uma notificação push (se o usuário tiver ativado).
 - **Metas de economia (savings goals)** — valor alvo que o usuário quer juntar, com progresso e contribuições manuais.
+- **Relatórios** — exportação de um relatório mensal completo em PDF.
+- **Índice de saúde financeira** — score de 0 a 100 combinando taxa de poupança, limites, metas e gastos atípicos do mês, calculado no `/api/dashboard/summary`.
 
 ## Rodando com Docker (recomendado)
 
@@ -65,7 +68,30 @@ Todos (exceto register/login) exigem o header `Authorization: Bearer <token>`.
 | PUT/DELETE | /api/spending-limits/{id} | Atualizar / remover limite de gastos |
 | GET/POST | /api/savings-goals | Listar / criar meta de economia |
 | PUT/DELETE | /api/savings-goals/{id} | Atualizar / remover meta de economia |
-| GET | /api/dashboard/summary | Resumo do mês (totais, gastos por categoria, projeção de saldo) |
+| GET/POST | /api/recurring-transactions | Listar / criar lançamento recorrente |
+| PUT/DELETE | /api/recurring-transactions/{id} | Atualizar (inclusive pausar/retomar) / remover recorrência |
+| POST/DELETE | /api/push-subscriptions | Registrar / remover inscrição de notificação push do navegador |
+| GET | /api/reports/monthly | Baixar relatório mensal em PDF (`?month=YYYY-MM`) |
+| GET | /api/dashboard/summary | Resumo do mês (totais, gastos por categoria, projeção de saldo, índice de saúde financeira) |
+| GET | /api/dashboard/compare | Comparar totais/gastos por categoria de dois meses à escolha (`?month_a=YYYY-MM&month_b=YYYY-MM`) |
+
+Detalhes completos de cada endpoint (formato de body, campos da resposta) em `specs/04-api-contract.md`.
+
+## Notificações push (opcional)
+
+Pra ativar o envio de notificação push quando um limite de gastos estoura, gere um par de chaves VAPID e configure no `.env`:
+
+```bash
+php -r "require 'vendor/autoload.php'; \$k = \Minishlink\WebPush\VAPID::createVapidKeys(); echo \$k['publicKey'].PHP_EOL.\$k['privateKey'].PHP_EOL;"
+```
+
+```
+VAPID_SUBJECT=mailto:seu-email@example.com
+VAPID_PUBLIC_KEY=<chave pública gerada>
+VAPID_PRIVATE_KEY=<chave privada gerada>
+```
+
+A chave pública também precisa ir pro front-end (`VITE_VAPID_PUBLIC_KEY`). Sem essas variáveis, o resto do sistema funciona normalmente — só a notificação em si não é enviada.
 
 ## Configuração do front-end
 

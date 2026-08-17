@@ -8,8 +8,10 @@ use App\Http\Requests\Transaction\StoreTransactionRequest;
 use App\Http\Requests\Transaction\UpdateTransactionRequest;
 use App\Http\Resources\TransactionResource;
 use App\Models\Transaction;
+use App\Services\DashboardCache;
 use App\Services\PushNotificationService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rules\Enum;
 
@@ -22,14 +24,27 @@ class TransactionController extends Controller
         ]);
 
         $transactions = $request->user()->transactions()
-            ->with(['category', 'account'])
+            ->with(['category', 'account', 'splits.category'])
             ->when($request->filled('month'), function ($query) use ($request) {
                 $reference = $request->date('month', 'Y-m');
 
                 $query->whereMonth('date', $reference->month)->whereYear('date', $reference->year);
             })
-            ->when($request->filled('category_id'), fn ($query) => $query->where('category_id', $request->integer('category_id')))
-            ->when($request->filled('type'), fn ($query) => $query->whereHas('category', fn ($category) => $category->where('type', $request->string('type'))))
+            ->when($request->filled('category_id'), function ($query) use ($request) {
+                $categoryId = $request->integer('category_id');
+
+                // Transação dividida (RF-TRX-13) casa com o filtro se QUALQUER split for dessa categoria.
+                $query->where(fn ($q) => $q
+                    ->where('category_id', $categoryId)
+                    ->orWhereHas('splits', fn ($split) => $split->where('category_id', $categoryId)));
+            })
+            ->when($request->filled('type'), function ($query) use ($request) {
+                $type = $request->string('type');
+
+                $query->where(fn ($q) => $q
+                    ->whereHas('category', fn ($category) => $category->where('type', $type))
+                    ->orWhereHas('splits.category', fn ($category) => $category->where('type', $type)));
+            })
             ->when($request->filled('search'), fn ($query) => $query->where('description', 'ilike', '%'.$request->string('search').'%'))
             ->orderByDesc('date')
             ->paginate(20);
@@ -41,13 +56,24 @@ class TransactionController extends Controller
     {
         $data = $request->validated();
         unset($data['receipt']);
+        $splits = $data['splits'] ?? null;
+        unset($data['splits']);
 
         if ($request->hasFile('receipt')) {
             $data['receipt_path'] = $request->file('receipt')->store("receipts/{$request->user()->id}", 'public');
         }
 
-        $transaction = $request->user()->transactions()->create($data);
-        $transaction->load(['category', 'account']);
+        $transaction = DB::transaction(function () use ($request, $data, $splits) {
+            $transaction = $request->user()->transactions()->create($data);
+
+            if ($splits) {
+                $transaction->splits()->createMany($splits);
+            }
+
+            return $transaction;
+        });
+
+        $transaction->load(['category', 'account', 'splits.category']);
 
         $this->notifyIfLimitExceeded($transaction);
 
@@ -60,6 +86,8 @@ class TransactionController extends Controller
 
         $data = $request->validated();
         unset($data['receipt'], $data['remove_receipt']);
+        $splits = $data['splits'] ?? null;
+        unset($data['splits']);
 
         if ($request->hasFile('receipt')) {
             $this->deleteReceipt($transaction->receipt_path);
@@ -69,8 +97,26 @@ class TransactionController extends Controller
             $data['receipt_path'] = null;
         }
 
-        $transaction->update($data);
-        $transaction->load(['category', 'account']);
+        DB::transaction(function () use ($transaction, $data, $splits, $request) {
+            $transaction->update($data);
+
+            // Enviar splits substitui totalmente os antigos; enviar category_id
+            // (sem splits) volta a transação pro modo de categoria única.
+            if ($splits) {
+                $transaction->splits()->delete();
+                $transaction->splits()->createMany($splits);
+            } elseif ($request->filled('category_id')) {
+                $transaction->splits()->delete();
+            }
+        });
+
+        // Editar só os splits (sem tocar amount/date/description/category_id)
+        // pode deixar o `update($data)` com um array vazio, e o Eloquent não
+        // dispara o evento 'updated' quando não há atributo sujo — invalida
+        // explicitamente pra não deixar o dashboard com cache desatualizado.
+        DashboardCache::invalidate($transaction->user_id);
+
+        $transaction->load(['category', 'account', 'splits.category']);
 
         $this->notifyIfLimitExceeded($transaction);
 
@@ -107,12 +153,23 @@ class TransactionController extends Controller
      */
     private function notifyIfLimitExceeded(Transaction $transaction): void
     {
-        if ($transaction->category->type !== TransactionType::Expense) {
+        // Transação dividida (RF-TRX-13) não tem category_id — o tipo e as
+        // categorias afetadas vêm dos splits, que já compartilham o mesmo type.
+        $categoryIds = $transaction->category_id
+            ? [$transaction->category_id]
+            : $transaction->splits->pluck('category_id')->all();
+
+        if (empty($categoryIds)) {
+            return;
+        }
+
+        $type = $transaction->category?->type ?? $transaction->splits->first()?->category?->type;
+        if ($type !== TransactionType::Expense) {
             return;
         }
 
         $limits = $transaction->user->spendingLimits()
-            ->where(fn ($query) => $query->whereNull('category_id')->orWhere('category_id', $transaction->category_id))
+            ->where(fn ($query) => $query->whereNull('category_id')->orWhereIn('category_id', $categoryIds))
             ->whereYear('reference_month', $transaction->date->year)
             ->whereMonth('reference_month', $transaction->date->month)
             ->get();

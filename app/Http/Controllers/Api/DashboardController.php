@@ -11,6 +11,7 @@ use App\Http\Resources\SpendingLimitResource;
 use App\Http\Resources\TransactionResource;
 use App\Models\Category;
 use App\Models\Transaction;
+use App\Services\CategoryBreakdownService;
 use App\Services\DashboardCache;
 use App\Services\FinancialHealthScoreCalculator;
 use Illuminate\Http\Request;
@@ -60,23 +61,7 @@ class DashboardController extends Controller
         $totals = $this->totalsFor($user->id, $month);
         $previousTotals = $this->totalsFor($user->id, $previousMonth);
 
-        $expensesByCategory = Category::query()
-            ->where('user_id', $user->id)
-            ->where('type', TransactionType::Expense)
-            ->withSum(['transactions as total_amount' => function ($query) use ($month) {
-                $query->whereYear('date', $month->year)->whereMonth('date', $month->month);
-            }], 'amount')
-            ->get()
-            ->filter(fn (Category $category) => (float) $category->total_amount > 0)
-            ->sortByDesc('total_amount')
-            ->values()
-            ->map(fn (Category $category) => [
-                'category' => new CategoryResource($category),
-                'total' => (float) $category->total_amount,
-                'percentage' => $totals['expense'] > 0
-                    ? round(((float) $category->total_amount / $totals['expense']) * 100, 1)
-                    : 0,
-            ]);
+        $expensesByCategory = $this->expensesByCategoryFor($user, $month, $totals);
 
         $accounts = AccountResource::collection(
             $user->accounts()->orderBy('name')->get()
@@ -96,7 +81,7 @@ class DashboardController extends Controller
 
         $recentTransactions = TransactionResource::collection(
             $user->transactions()
-                ->with(['category', 'account'])
+                ->with(['category', 'account', 'splits.category'])
                 ->whereYear('date', $month->year)
                 ->whereMonth('date', $month->month)
                 ->orderByDesc('date')
@@ -146,6 +131,9 @@ class DashboardController extends Controller
 
         $recurringTransactions = Transaction::query()
             ->where('user_id', $user->id)
+            // Transação dividida (RF-TRX-13) não tem uma categoria única pra
+            // comparar entre meses — mesma exclusão de RF-TRX-11.
+            ->whereNotNull('category_id')
             ->with('category')
             ->where('date', '>=', $windowStart)
             ->where('date', '<', $currentMonth)
@@ -177,26 +165,60 @@ class DashboardController extends Controller
             ->all();
     }
 
-    private function totalsFor(int $userId, Carbon $month): array
+    /**
+     * Compara dois meses à escolha (RF-DASH-11) lado a lado — mesmo cálculo
+     * de totais/gastos-por-categoria do summary, só que pra dois meses
+     * arbitrários em vez de "mês atual vs. anterior".
+     */
+    public function compare(Request $request)
     {
-        $income = Transaction::query()
-            ->where('user_id', $userId)
-            ->whereHas('category', fn ($query) => $query->where('type', TransactionType::Income))
-            ->whereYear('date', $month->year)
-            ->whereMonth('date', $month->month)
-            ->sum('amount');
+        $request->validate([
+            'month_a' => ['required', 'date_format:Y-m'],
+            'month_b' => ['required', 'date_format:Y-m'],
+        ]);
 
-        $expense = Transaction::query()
-            ->where('user_id', $userId)
-            ->whereHas('category', fn ($query) => $query->where('type', TransactionType::Expense))
-            ->whereYear('date', $month->year)
-            ->whereMonth('date', $month->month)
-            ->sum('amount');
+        $user = $request->user();
+        $monthA = $request->date('month_a', 'Y-m')->startOfMonth();
+        $monthB = $request->date('month_b', 'Y-m')->startOfMonth();
+
+        return response()->json([
+            'month_a' => $this->monthSnapshot($user, $monthA),
+            'month_b' => $this->monthSnapshot($user, $monthB),
+        ]);
+    }
+
+    private function monthSnapshot($user, Carbon $month): array
+    {
+        $totals = $this->totalsFor($user->id, $month);
 
         return [
-            'income' => (float) $income,
-            'expense' => (float) $expense,
-            'balance' => (float) $income - (float) $expense,
+            'month' => $month->toDateString(),
+            'totals' => $totals,
+            'expenses_by_category' => $this->expensesByCategoryFor($user, $month, $totals),
+        ];
+    }
+
+    private function expensesByCategoryFor($user, Carbon $month, array $totals)
+    {
+        return CategoryBreakdownService::categoriesWithTotals($user->id, $month, TransactionType::Expense)
+            ->map(fn (Category $category) => [
+                'category' => new CategoryResource($category),
+                'total' => (float) $category->total_amount,
+                'percentage' => $totals['expense'] > 0
+                    ? round(((float) $category->total_amount / $totals['expense']) * 100, 1)
+                    : 0,
+            ]);
+    }
+
+    private function totalsFor(int $userId, Carbon $month): array
+    {
+        $income = CategoryBreakdownService::totalForType($userId, $month, TransactionType::Income);
+        $expense = CategoryBreakdownService::totalForType($userId, $month, TransactionType::Expense);
+
+        return [
+            'income' => $income,
+            'expense' => $expense,
+            'balance' => $income - $expense,
         ];
     }
 }

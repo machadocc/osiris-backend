@@ -4,7 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Enums\TransactionType;
 use App\Http\Controllers\Controller;
-use App\Models\Category;
+use App\Services\CategoryBreakdownService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 
@@ -20,25 +20,16 @@ class ReportController extends Controller
         $month = ($request->filled('month') ? $request->date('month', 'Y-m') : now())->startOfMonth();
 
         $transactions = $user->transactions()
-            ->with(['category', 'account'])
+            ->with(['category', 'account', 'splits.category'])
             ->whereYear('date', $month->year)
             ->whereMonth('date', $month->month)
             ->orderBy('date')
             ->get();
 
-        $income = (float) $transactions->filter(fn ($t) => $t->category->type === TransactionType::Income)->sum('amount');
-        $expense = (float) $transactions->filter(fn ($t) => $t->category->type === TransactionType::Expense)->sum('amount');
+        $income = CategoryBreakdownService::totalForType($user->id, $month, TransactionType::Income);
+        $expense = CategoryBreakdownService::totalForType($user->id, $month, TransactionType::Expense);
 
-        $expensesByCategory = Category::query()
-            ->where('user_id', $user->id)
-            ->where('type', TransactionType::Expense)
-            ->withSum(['transactions as total_amount' => function ($query) use ($month) {
-                $query->whereYear('date', $month->year)->whereMonth('date', $month->month);
-            }], 'amount')
-            ->get()
-            ->filter(fn (Category $category) => (float) $category->total_amount > 0)
-            ->sortByDesc('total_amount')
-            ->values();
+        $expensesByCategory = CategoryBreakdownService::categoriesWithTotals($user->id, $month, TransactionType::Expense);
 
         $spendingLimits = $user->spendingLimits()
             ->with('category')

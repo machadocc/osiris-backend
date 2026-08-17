@@ -152,14 +152,15 @@
                 </tr>
             </thead>
             <tbody>
+                @php $typeOf = fn ($t) => $t->category?->type ?? $t->splits->first()?->category?->type; @endphp
                 @foreach ($transactions as $transaction)
                     <tr>
                         <td>{{ \Illuminate\Support\Carbon::parse($transaction->date)->format('d/m/Y') }}</td>
-                        <td>{{ $transaction->category->name }}</td>
+                        <td>{{ $transaction->category->name ?? 'Múltiplas categorias' }}</td>
                         <td>{{ $transaction->account->name }}</td>
                         <td>{{ $transaction->description ?: '-' }}</td>
-                        <td class="num {{ $transaction->category->type->value === 'income' ? 'income' : 'expense' }}">
-                            {{ $transaction->category->type->value === 'income' ? '+' : '-' }} R$ {{ number_format($transaction->amount, 2, ',', '.') }}
+                        <td class="num {{ $typeOf($transaction)?->value === 'income' ? 'income' : 'expense' }}">
+                            {{ $typeOf($transaction)?->value === 'income' ? '+' : '-' }} R$ {{ number_format($transaction->amount, 2, ',', '.') }}
                         </td>
                     </tr>
                 @endforeach

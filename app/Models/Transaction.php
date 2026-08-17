@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\Storage;
 
 #[Fillable(['category_id', 'account_id', 'recurring_transaction_id', 'amount', 'description', 'date', 'receipt_path'])]
@@ -33,6 +34,11 @@ class Transaction extends Model
         return $this->belongsTo(Account::class);
     }
 
+    public function splits(): HasMany
+    {
+        return $this->hasMany(TransactionSplit::class);
+    }
+
     public function receiptUrl(): ?string
     {
         return $this->receipt_path ? Storage::disk('public')->url($this->receipt_path) : null;
@@ -40,6 +46,11 @@ class Transaction extends Model
 
     public function isUnusualAmount(): bool
     {
+        // Transação dividida (RF-TRX-13) não tem uma categoria única pra comparar.
+        if ($this->category_id === null) {
+            return false;
+        }
+
         $stats = static::query()
             ->where('user_id', $this->user_id)
             ->where('category_id', $this->category_id)

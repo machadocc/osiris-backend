@@ -23,6 +23,7 @@ Route::middleware(['auth:sanctum', GenerateDueRecurringTransactions::class])->gr
     Route::put('/auth/me/password', [AuthController::class, 'changePassword']);
 
     Route::get('/dashboard/summary', [DashboardController::class, 'summary']);
+    Route::get('/dashboard/compare', [DashboardController::class, 'compare']);
 
     Route::apiResource('categories', CategoryController::class)->except(['show']);
     Route::apiResource('accounts', AccountController::class)->except(['show']);
