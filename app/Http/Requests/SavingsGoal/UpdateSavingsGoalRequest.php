@@ -15,8 +15,8 @@ class UpdateSavingsGoalRequest extends FormRequest
     {
         return [
             'name' => ['sometimes', 'required', 'string', 'max:255'],
-            'target_amount' => ['sometimes', 'required', 'numeric', 'min:0.01'],
-            'current_amount' => ['sometimes', 'nullable', 'numeric', 'min:0'],
+            'target_amount' => ['sometimes', 'required', 'numeric', 'min:0.01', 'max:9999999999.99'],
+            'current_amount' => ['sometimes', 'nullable', 'numeric', 'min:0', 'max:9999999999.99'],
             'target_date' => ['sometimes', 'nullable', 'date'],
         ];
     }
