@@ -29,14 +29,20 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         RateLimiter::for('api', function (Request $request) {
+            $identifier = $request->user()?->id ?: $request->ip();
+
             // A importação de extrato (RF-IMP-01) cria um lançamento por vez
             // via POST /transactions, um por linha aprovada — um extrato de
             // algumas centenas de linhas facilmente ultrapassa o limite geral.
+            // A chave do limite precisa ser diferente da chave geral (não só
+            // o teto), senão as duas checagens compartilham o mesmo contador
+            // e criar várias transações consome, sem querer, a cota de
+            // navegação normal (listar transações, categorias, contas etc).
             if ($request->routeIs('transactions.store')) {
-                return Limit::perMinute(600)->by($request->user()?->id ?: $request->ip());
+                return Limit::perMinute(600)->by('transactions-store:'.$identifier);
             }
 
-            return Limit::perMinute(120)->by($request->user()?->id ?: $request->ip());
+            return Limit::perMinute(120)->by($identifier);
         });
 
         RateLimiter::for('auth', function (Request $request) {
