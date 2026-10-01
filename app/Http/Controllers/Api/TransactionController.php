@@ -9,8 +9,10 @@ use App\Http\Requests\Transaction\UpdateTransactionRequest;
 use App\Http\Resources\TransactionResource;
 use App\Models\Transaction;
 use App\Services\DashboardCache;
+use App\Services\InflationIndexService;
 use App\Services\PushNotificationService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rules\Enum;
@@ -48,6 +50,10 @@ class TransactionController extends Controller
             ->when($request->filled('search'), fn ($query) => $query->where('description', 'ilike', '%'.$request->string('search').'%'))
             ->orderByDesc('date')
             ->paginate(20);
+
+        if ($request->boolean('correct_inflation')) {
+            $this->attachInflationCorrection($transactions);
+        }
 
         return TransactionResource::collection($transactions);
     }
@@ -136,6 +142,34 @@ class TransactionController extends Controller
     private function authorizeOwnership(Request $request, Transaction $transaction): void
     {
         abort_unless($transaction->user_id === $request->user()->id, 403);
+    }
+
+    /**
+     * Preenche `adjusted_amount` (lido pelo TransactionResource) com o valor
+     * de cada transação corrigido pelo IPCA até o mês atual (RF-TRX-14).
+     * Fica null quando a API do Banco Central não respondeu e o mês ainda
+     * não estava cacheado — o front mostra só o valor nominal nesse caso.
+     */
+    private function attachInflationCorrection(iterable $transactions): void
+    {
+        $currentMonth = Carbon::now();
+
+        $earliestDate = null;
+        foreach ($transactions as $transaction) {
+            if ($earliestDate === null || $transaction->date->lessThan($earliestDate)) {
+                $earliestDate = $transaction->date;
+            }
+        }
+
+        if ($earliestDate !== null) {
+            InflationIndexService::warmCache($earliestDate, $currentMonth);
+        }
+
+        foreach ($transactions as $transaction) {
+            $factor = InflationIndexService::correctionFactor($transaction->date, $currentMonth);
+
+            $transaction->adjusted_amount = $factor !== null ? round((float) $transaction->amount * $factor, 2) : null;
+        }
     }
 
     private function deleteReceipt(?string $path): void

@@ -20,6 +20,7 @@ class TransactionResource extends JsonResource
             'receipt_url' => $this->receiptUrl(),
             'is_recurring' => $this->isRecurring(),
             'is_unusual_amount' => $this->isUnusualAmount(),
+            'adjusted_amount' => $this->when(isset($this->adjusted_amount), $this->adjusted_amount),
             'created_at' => $this->created_at,
         ];
     }
