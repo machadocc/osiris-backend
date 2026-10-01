@@ -25,16 +25,16 @@ class StoreTransactionRequest extends FormRequest
                 'required',
                 Rule::exists('accounts', 'id')->where('user_id', $this->user()->id),
             ],
-            'amount' => ['required', 'numeric', 'min:0.01'],
+            'amount' => ['required', 'numeric', 'min:0.01', 'max:9999999999.99'],
             'description' => ['nullable', 'string', 'max:255'],
             'date' => ['required', 'date'],
             'receipt' => ['nullable', 'image', 'mimes:jpeg,png,webp', 'max:5120'],
-            'splits' => ['sometimes', 'array', 'min:2'],
+            'splits' => ['sometimes', 'array', 'min:2', 'max:50'],
             'splits.*.category_id' => [
                 'required',
                 Rule::exists('categories', 'id')->where('user_id', $this->user()->id),
             ],
-            'splits.*.amount' => ['required', 'numeric', 'min:0.01'],
+            'splits.*.amount' => ['required', 'numeric', 'min:0.01', 'max:9999999999.99'],
         ];
     }
 

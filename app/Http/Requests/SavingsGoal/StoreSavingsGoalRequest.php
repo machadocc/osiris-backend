@@ -15,8 +15,8 @@ class StoreSavingsGoalRequest extends FormRequest
     {
         return [
             'name' => ['required', 'string', 'max:255'],
-            'target_amount' => ['required', 'numeric', 'min:0.01'],
-            'current_amount' => ['nullable', 'numeric', 'min:0'],
+            'target_amount' => ['required', 'numeric', 'min:0.01', 'max:9999999999.99'],
+            'current_amount' => ['nullable', 'numeric', 'min:0', 'max:9999999999.99'],
             'target_date' => ['nullable', 'date'],
         ];
     }

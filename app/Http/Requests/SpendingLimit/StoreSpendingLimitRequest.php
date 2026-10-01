@@ -20,7 +20,7 @@ class StoreSpendingLimitRequest extends FormRequest
                 Rule::exists('categories', 'id')->where('user_id', $this->user()->id),
             ],
             'name' => ['required', 'string', 'max:255'],
-            'limit_amount' => ['required', 'numeric', 'min:0.01'],
+            'limit_amount' => ['required', 'numeric', 'min:0.01', 'max:9999999999.99'],
             'reference_month' => ['required', 'date'],
         ];
     }

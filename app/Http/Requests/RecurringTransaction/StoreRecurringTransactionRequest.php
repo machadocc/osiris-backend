@@ -23,7 +23,7 @@ class StoreRecurringTransactionRequest extends FormRequest
                 'required',
                 Rule::exists('accounts', 'id')->where('user_id', $this->user()->id),
             ],
-            'amount' => ['required', 'numeric', 'min:0.01'],
+            'amount' => ['required', 'numeric', 'min:0.01', 'max:9999999999.99'],
             'description' => ['nullable', 'string', 'max:255'],
             'day_of_month' => ['required', 'integer', 'min:1', 'max:28'],
             'active' => ['sometimes', 'boolean'],

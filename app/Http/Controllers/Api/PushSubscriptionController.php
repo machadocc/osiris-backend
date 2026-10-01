@@ -23,7 +23,7 @@ class PushSubscriptionController extends Controller
 
     public function destroy(Request $request)
     {
-        $request->validate(['endpoint' => ['required', 'string']]);
+        $request->validate(['endpoint' => ['required', 'string', 'max:2048']]);
 
         $request->user()->pushSubscriptions()
             ->where('endpoint', $request->input('endpoint'))

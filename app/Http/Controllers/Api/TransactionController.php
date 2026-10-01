@@ -22,7 +22,10 @@ class TransactionController extends Controller
     public function index(Request $request)
     {
         $request->validate([
+            'month' => ['sometimes', 'date_format:Y-m'],
+            'category_id' => ['sometimes', 'integer'],
             'type' => ['sometimes', new Enum(TransactionType::class)],
+            'search' => ['sometimes', 'string', 'max:255'],
         ]);
 
         $transactions = $request->user()->transactions()
