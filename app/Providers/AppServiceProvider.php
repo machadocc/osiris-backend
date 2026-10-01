@@ -29,6 +29,13 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         RateLimiter::for('api', function (Request $request) {
+            // A importação de extrato (RF-IMP-01) cria um lançamento por vez
+            // via POST /transactions, um por linha aprovada — um extrato de
+            // algumas centenas de linhas facilmente ultrapassa o limite geral.
+            if ($request->routeIs('transactions.store')) {
+                return Limit::perMinute(600)->by($request->user()?->id ?: $request->ip());
+            }
+
             return Limit::perMinute(120)->by($request->user()?->id ?: $request->ip());
         });
 
